@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Registro Assis - Controle de Estoque</title>
+<style>
+:root {
+  --navy: #1F3A5F;
+  --gold: #B8963E;
+  --bg: #F5F6F8;
+  --card: #FFFFFF;
+  --border: #DDE2E8;
+  --text: #1C2230;
+  --muted: #6B7484;
+  --pending: #B8471E;
+  --done: #1E7A4C;
+  box-sizing: border-box;
+}
+html { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.5;
+}
+/* ---------- Login ---------- */
+#loginScreen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--navy) 0%, #142943 100%); padding: 20px;
+}
+.loginCard {
+  background: var(--card); border-radius: 16px; padding: 36px 32px; width: 100%; max-width: 380px;
+  border-top: 5px solid var(--gold); box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+}
+.loginCard .brandmark {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--gold); color: var(--navy);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;
+  margin: 0 auto 14px;
+}
+.loginCard h1 { text-align: center; font-size: 20px; margin: 0 0 4px; color: var(--navy); }
+.loginCard p.sub { text-align: center; color: var(--muted); font-size: 13.5px; margin: 0 0 22px; }
+.loginCard label { display: block; font-size: 13.5px; font-weight: 700; margin: 14px 0 6px; color: var(--text); }
+.loginCard input {
+  width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 15px; font-family: inherit; background: var(--bg);
+}
+.loginCard button[type="submit"] {
+  width: 100%; margin-top: 22px; background: var(--navy); color: #fff; border: none;
+  border-radius: 9px; padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.loginCard .forgot { display:block; text-align: center; margin-top: 14px; font-size: 13px; color: var(--navy); cursor: pointer; }
+#loginError { min-height: 18px; font-size: 13px; color: var(--pending); text-align: center; margin-top: 12px; }
+/* ---------- App shell ---------- */
+#appScreen { display: none; }
+header {
+  background: linear-gradient(135deg, var(--navy) 0%, #142943 100%); color: #fff;
+  padding: 24px clamp(16px, 4vw, 48px) 20px;
+  border-bottom: 4px solid var(--gold);
+  display: flex; align-items: center; gap: 18px;
+}
+.brandmark {
+  flex: none; width: 62px; height: 62px; border-radius: 50%;
+  background: var(--gold); color: var(--navy);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 19px; letter-spacing: 0.5px;
+  border: 3px solid rgba(255,255,255,0.6);
+}
+.brandtext { flex: 1; }
+.brandtext h1 { margin: 0; font-size: 25px; letter-spacing: 0.2px; }
+.headerRight { text-align: right; font-size: 13px; color: #C9D3E0; }
+.headerRight button {
+  display: block; margin-top: 6px; background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 7px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; font-family: inherit;
+}
+nav {
+  display: flex; gap: 8px; padding: 12px clamp(16px, 4vw, 48px); background: var(--card);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0;
+  overflow-x: auto; z-index: 5;
+}
+nav button {
+  border: none; background: transparent; color: var(--muted); font-weight: 700;
+  padding: 11px 20px; border-radius: 9px; cursor: pointer; font-size: 15px; white-space: nowrap;
+}
+nav button.active { background: var(--navy); color: #fff; box-shadow: inset 0 -3px 0 var(--gold); }
+main { max-width: 1440px; margin: 0 auto; padding: 24px clamp(16px, 4vw, 48px) 70px; }
+.tab { display: none; }
+.tab.active { display: block; }
+#dash.tab.active, #visao.tab.active {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 22px; align-items: start;
+}
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 22px 26px; margin-bottom: 20px; border-top: 4px solid var(--gold);
+}
+#dash.tab.active .card, #visao.tab.active .card { margin-bottom: 0; }
+.card h2 { margin: 0 0 14px; font-size: 20px; color: var(--navy); }
+.card p { margin: 0 0 10px; }
+.card ul { margin: 0; padding-left: 22px; }
+.card li { margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.tablewrap { overflow-x: auto; }
+th, td { border: 1px solid var(--border); padding: 12px 15px; text-align: left; vertical-align: top; }
+th { background: var(--navy); color: #fff; font-weight: 700; white-space: nowrap; font-size: 14px; }
+tr:nth-child(even) td { background: rgba(127,127,127,0.06); }
+td input[type="text"], td textarea {
+  width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 6px 7px; font-size: 15px;
+  font-family: inherit; background: transparent; color: var(--text); resize: vertical;
+}
+td input[type="text"]:focus, td textarea:focus { outline: 2px solid var(--gold); outline-offset: -1px; background: rgba(184,150,62,0.08); border-color: transparent; }
+.badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 13.5px; font-weight: 700; cursor: pointer; border: none; }
+.badge.pendente { background: rgba(184,71,30,0.15); color: var(--pending); }
+.badge.resolvido { background: rgba(30,122,76,0.15); color: var(--done); }
+.tipo-select {
+  width: 100%; min-width: 210px; border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+  color: var(--text); font-size: 14.5px; padding: 10px 8px; font-family: inherit;
+}
+.tipo-tag { display: inline-block; padding: 6px 13px; border-radius: 8px; font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+.tipo-Retirada { background: rgba(31,58,95,0.12); color: var(--navy); }
+.tipo-Devolução { background: rgba(184,150,62,0.18); color: #8A6A1F; }
+.tipo-Recebimento { background: rgba(30,122,76,0.12); color: var(--done); }
+.date-input {
+  width: 100%; min-width: 150px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--text); font-size: 14.5px; padding: 9px 8px; font-family: inherit;
+}
+.days { font-weight: 700; font-size: 15px; }
+.days.over { color: var(--pending); }
+.btnrow { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+button.action {
+  background: var(--navy); color: #fff; border: none; border-radius: 9px;
+  padding: 12px 20px; font-size: 14.5px; font-weight: 700; cursor: pointer;
+}
+button.action.secondary { background: transparent; color: var(--pending); border: 1px solid var(--pending); }
+.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+.steps li { counter-increment: step; padding: 12px 0 12px 44px; position: relative; border-bottom: 1px dashed var(--border); font-size: 15.5px; }
+.steps li:last-child { border-bottom: none; }
+.steps li::before {
+  content: counter(step); position: absolute; left: 0; top: 10px;
+  width: 28px; height: 28px; border-radius: 50%; background: var(--gold); color: #fff;
+  font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.hint { color: var(--muted); font-size: 13.5px; margin-top: 8px; }
+.editinfo { font-size: 12px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+.statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.stat {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px 14px; text-align: center;
+}
+.stat .num { font-size: 38px; font-weight: 800; color: var(--navy); line-height: 1.1; }
+.stat .lbl { font-size: 13px; color: var(--muted); margin-top: 6px; font-weight: 600; }
+.stat.accent-gold .num { color: var(--gold); }
+.stat.accent-pending .num { color: var(--pending); }
+.stat.accent-done .num { color: var(--done); }
+.alertlist { list-style: none; margin: 0; padding: 0; }
+.alertlist li {
+  display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-radius: 10px;
+  background: rgba(184,71,30,0.10); border: 1px solid rgba(184,71,30,0.35); margin-bottom: 10px;
+  font-size: 14.5px;
+}
+.alertlist li .ico { font-size: 20px; }
+.alertlist li b { color: var(--pending); }
+.noalert { color: var(--muted); font-size: 14.5px; }
+.connstatus { font-size: 12px; color: var(--muted); text-align: center; padding: 6px; }
+.connstatus.live::before { content: "● "; color: var(--done); }
+@media (max-width: 640px) {
+  #dash.tab.active, #visao.tab.active { grid-template-columns: 1fr; }
+  .brandtext h1 { font-size: 19px; }
+  .card { padding: 18px 18px; }
+}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="loginCard">
+    <div class="brandmark">RI</div>
+    <h1>Registro Assis</h1>
+    <p class="sub">Controle de Estoque — entre com seu e-mail</p>
+    <form id="loginForm">
+      <label for="loginEmail">E-mail</label>
+      <input type="email" id="loginEmail" required autocomplete="username">
+      <label for="loginPassword">Senha</label>
+      <input type="password" id="loginPassword" required autocomplete="current-password">
+      <button type="submit">Entrar</button>
+    </form>
+    <a class="forgot" id="forgotPassword" href="#">Esqueci minha senha</a>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<div id="appScreen">
+  <header>
+    <div class="brandmark">RI</div>
+    <div class="brandtext"><h1>Registro Assis - Controle de Estoque</h1></div>
+    <div class="headerRight">
+      <span id="userEmail"></span>
+      <button id="logoutBtn">Sair</button>
+    </div>
+  </header>
+  <nav>
+    <button data-tab="dash" class="active">Dashboard</button>
+    <button data-tab="visao">Visão geral</button>
+    <button data-tab="acomp">Acompanhamento semanal</button>
+    <button data-tab="estoque">Controle de estoque</button>
+    <button data-tab="notif">Notificações</button>
+  </nav>
+  <main>
+
+    <section id="dash" class="tab active">
+      <div class="card">
+        <h2>Totais do controle de estoque</h2>
+        <div class="statgrid" id="statGrid"></div>
+      </div>
+      <div class="card">
+        <h2>Alertas — prazos vencendo em até 48h</h2>
+        <ul class="alertlist" id="alertList"></ul>
+        <p class="noalert" id="noAlert" style="display:none">Nenhum prazo vencendo nas próximas 48h.</p>
+      </div>
+    </section>
+
+    <section id="visao" class="tab">
+      <div class="card">
+        <h2>Objetivo</h2>
+        <p>Concluir a revisão do controle de estoque, fragmentar e enviar o ofício até <strong>1º de dezembro</strong>. Depois, o controle passa a ser contínuo (~10 min/dia por pessoa), reduzindo o arquivo físico todo mês.</p>
+      </div>
+      <div class="card">
+        <h2>Prazos de guarda</h2>
+        <div class="tablewrap"><table>
+          <tr><th>Tipo</th><th>Prazo</th></tr>
+          <tr><td>Títulos registrados</td><td>1 ano</td></tr>
+          <tr><td>Títulos devolvidos</td><td>5 anos, com prenotação vencida. Conferir ao menos se o mais antigo está digitalizado.</td></tr>
+          <tr><td>Certidões (pedidos)</td><td>3 meses. Certidões em papel emitidas não precisam ser digitalizadas antes do descarte.</td></tr>
+        </table></div>
+        <p class="hint">Ofício de fragmentação: a cada 6 meses, sempre em 1º de dezembro e 1º de junho.</p>
+      </div>
+      <div class="card">
+        <h2>Fluxo de cobrança e devolução</h2>
+        <ol class="steps">
+          <li><strong>Mensagem</strong> de cobrança (sem ligação) — novo prazo de 15 dias.</li>
+          <li><strong>Notificação física</strong>, documento simples não registrado, entregue pessoalmente pelo Leo — prazo de 10 dias.</li>
+          <li>Sem retorno: <strong>protesto</strong> (dívida do cliente, via Bea) ou <strong>consignação em pagamento</strong> (dinheiro a devolver ao usuário).</li>
+        </ol>
+        <p class="hint">Título com mais de 5 anos: verificar prescrição com o jurídico antes de protestar. Tabeliães ficam fora desse fluxo — um telefonema resolve.</p>
+      </div>
+      <div class="card">
+        <h2>Diferença de valor — regra dos qualificadores</h2>
+        <p>Qualificadores não registram mais nenhum título com diferença de valor no RI, em nenhum caso — mesmo rito já aplicado ao título eletrônico.</p>
+      </div>
+      <div class="card">
+        <h2>Responsáveis</h2>
+        <div class="tablewrap"><table>
+          <tr><th>Quem</th><th>O quê</th></tr>
+          <tr><td>Leticia</td><td>Documentar as regras de processo do atendimento (cobrança, notificação, protesto).</td></tr>
+          <tr><td>João Vitor</td><td>Colocar a demanda na fila de desenvolvimento do Qualifica.</td></tr>
+          <tr><td>Viviane</td><td>Elaborar a mensagem de consignação e o modelo da notificação física.</td></tr>
+          <tr><td>Leo</td><td>Entregar pessoalmente as notificações físicas.</td></tr>
+          <tr><td>Bea</td><td>Encaminhar os títulos ao protesto; coordenar o controle semanal.</td></tr>
+          <tr><td>Carla</td><td>Revisar o processo de intimação com o Vinicius.</td></tr>
+        </table></div>
+      </div>
+      <div class="card">
+        <h2>Mudanças de equipe</h2>
+        <ul>
+          <li>Roberta sai em dezembro. Carla a substitui no atendimento até o retorno da Cris.</li>
+          <li>Vinicius Rossi entra de férias em outubro; Juliana o substitui.</li>
+          <li>Objetivo: liberar a Carla para o atendimento assim que possível.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="acomp" class="tab">
+      <div class="card">
+        <h2>Acompanhamento semanal até 1º de dezembro</h2>
+        <p class="hint">Clique em qualquer célula para editar. As alterações são salvas automaticamente para todos.</p>
+        <div class="tablewrap"><table id="weekTable">
+          <thead><tr><th>Data</th><th>Registrados</th><th>Devolvidos</th><th>Certidões</th><th>Observações</th><th>Última edição</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <p class="hint" style="margin-top:10px"><strong>Meta final:</strong> relações concluídas, arquivo conferido, fragmentado e ofício enviado em 1º/12.</p>
+      </div>
+    </section>
+
+    <section id="estoque" class="tab">
+      <div class="card">
+        <h2>Controle de estoque — protocolos</h2>
+        <p class="hint">Inclua aqui todos os protocolos da relação do estoque. Tipo de documento define o prazo de guarda; Classificação define se o protocolo precisa de cobrança (aparece em Notificações).</p>
+        <div class="tablewrap"><table id="estoqueTable">
+          <thead><tr><th>Protocolo</th><th>Tipo de documento</th><th>Classificação</th><th>Última edição</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <div class="btnrow"><button class="action" id="addEstoque">+ Adicionar protocolo</button></div>
+      </div>
+    </section>
+
+    <section id="notif" class="tab">
+      <div class="card">
+        <h2>Controle de notificações e cobranças</h2>
+        <p class="hint">Mostra automaticamente os protocolos classificados como Devolução de valor ou Recebimento de valor. Preencha a data da mensagem e da notificação — os dias são contados sozinhos. Prazo: 15 dias após a mensagem, 10 dias após a notificação.</p>
+        <div class="tablewrap"><table id="notifTable">
+          <thead><tr><th>Protocolo</th><th>Classificação</th><th>Data da mensagem</th><th>Dias</th><th>Data da notificação</th><th>Dias</th><th>Status</th><th>Última edição</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <p class="hint" id="notifEmpty" style="display:none">Nenhum protocolo classificado como Devolução de valor ou Recebimento de valor no momento.</p>
+      </div>
+    </section>
+
+    <p class="connstatus" id="connStatus">Conectando…</p>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC_yJUgeeN0dCbZQ2TCoiPHHyt62JvBGjo",
+  authDomain: "controle-de-estoque-5908d.firebaseapp.com",
+  projectId: "controle-de-estoque-5908d",
+  storageBucket: "controle-de-estoque-5908d.firebasestorage.app",
+  messagingSenderId: "733320729126",
+  appId: "1:733320729126:web:5557fddae1856f1790cce7"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+const WEEK_DATES = ['21/09','28/09','05/10','12/10','19/10','26/10','02/11','09/11','16/11','23/11','30/11'];
+const PRAZO_GUARDA = { 'Título registrado': '1 ano', 'Título devolvido': '5 anos', 'Certidão': '3 meses' };
+const CLASS_LABEL = { 'Retirada': 'Retirada', 'Devolução': 'Devolução de valor', 'Recebimento': 'Recebimento de valor' };
+function docLabel(t) { const p = PRAZO_GUARDA[t]; return t + (p ? ' — prazo de guarda ' + p : ''); }
+function classLabel(c) { return CLASS_LABEL[c] || c; }
+
+function parseISODate(d) {
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  const dt = new Date(d + 'T00:00:00');
+  return isNaN(dt.getTime()) ? null : dt;
+}
+function daysSince(d) {
+  const dt = parseISODate(d);
+  if (!dt) return null;
+  const diff = Math.floor((new Date() - dt) / 86400000);
+  return diff >= 0 ? diff : null;
+}
+function el(tag, attrs, ...children) {
+  const e = document.createElement(tag);
+  for (const k in attrs || {}) {
+    if (k === 'text') e.textContent = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  }
+  children.forEach(c => e.appendChild(c));
+  return e;
+}
+function stampFields() {
+  return {
+    editadoPor: (auth.currentUser && auth.currentUser.email) || 'Alguém',
+    editadoEm: new Date().toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+  };
+}
+function editInfoCell(row) {
+  const td = el('td');
+  if (row.editadoPor) td.appendChild(el('div', { class:'editinfo', text: row.editadoPor + ' · ' + (row.editadoEm || '') }));
+  return td;
+}
+
+let STATE = { estoque: [], semanal: {} };
+let unsubEstoque = null, unsubSemanal = null;
+
+/* ---------- Auth ---------- */
+const loginScreen = document.getElementById('loginScreen');
+const appScreen = document.getElementById('appScreen');
+const loginForm = document.getElementById('loginForm');
+const loginError = document.getElementById('loginError');
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  loginError.style.color = 'var(--pending)';
+  loginError.textContent = '';
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    loginError.textContent = 'E-mail ou senha inválidos.';
+  }
+});
+
+document.getElementById('forgotPassword').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  if (!email) { loginError.textContent = 'Digite seu e-mail acima primeiro.'; return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    loginError.style.color = 'var(--done)';
+    loginError.textContent = 'E-mail de redefinição enviado. Confira sua caixa de entrada.';
+  } catch (err) {
+    loginError.style.color = 'var(--pending)';
+    loginError.textContent = 'Não foi possível enviar. Confira o e-mail digitado.';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loginScreen.style.display = 'none';
+    appScreen.style.display = 'block';
+    document.getElementById('userEmail').textContent = user.email;
+    startListeners();
+  } else {
+    appScreen.style.display = 'none';
+    loginScreen.style.display = 'flex';
+    if (unsubEstoque) unsubEstoque();
+    if (unsubSemanal) unsubSemanal();
+  }
+});
+
+function startListeners() {
+  const conn = document.getElementById('connStatus');
+  unsubEstoque = onSnapshot(collection(db, 'estoque'), (snap) => {
+    STATE.estoque = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    conn.textContent = 'Sincronizado em tempo real'; conn.classList.add('live');
+    renderDashboard(); renderEstoque(); renderNotif();
+  }, () => { conn.textContent = 'Sem conexão — tentando reconectar…'; conn.classList.remove('live'); });
+
+  unsubSemanal = onSnapshot(collection(db, 'semanal'), (snap) => {
+    STATE.semanal = {};
+    snap.docs.forEach(d => { STATE.semanal[d.id] = d.data(); });
+    renderWeek();
+  });
+}
+
+/* ---------- Dashboard ---------- */
+function renderDashboard() {
+  const grid = document.getElementById('statGrid');
+  const list = STATE.estoque;
+  const total = list.length;
+  const isTracked = r => r.classificacao === 'Devolução' || r.classificacao === 'Recebimento';
+  const tracked = list.filter(isTracked);
+  const pendentes = tracked.filter(r => r.status !== 'Resolvido').length;
+  const resolvidos = tracked.filter(r => r.status === 'Resolvido').length;
+  const nRetirada = list.filter(r => r.classificacao === 'Retirada').length;
+  const nDevolucao = list.filter(r => r.classificacao === 'Devolução').length;
+  const nRecebimento = list.filter(r => r.classificacao === 'Recebimento').length;
+
+  grid.innerHTML = '';
+  [[total,'Protocolos no total',''],[pendentes,'Pendentes','accent-pending'],[resolvidos,'Resolvidos','accent-done'],
+   [nRetirada,'Retirada',''],[nDevolucao,'Devolução','accent-gold'],[nRecebimento,'Recebimento','accent-gold']]
+  .forEach(([num,lbl,cls]) => {
+    const div = el('div', { class: 'stat ' + cls });
+    div.appendChild(el('div', { class:'num', text: String(num) }));
+    div.appendChild(el('div', { class:'lbl', text: lbl }));
+    grid.appendChild(div);
+  });
+
+  const alertList = document.getElementById('alertList');
+  const noAlert = document.getElementById('noAlert');
+  alertList.innerHTML = '';
+  const alerts = [];
+  tracked.filter(r => r.status !== 'Resolvido').forEach(r => {
+    if (!r.dataNotificacao) {
+      const d = daysSince(r.dataMensagem);
+      if (d !== null && d >= 13 && d < 15) alerts.push({ protocolo: r.protocolo || '(sem protocolo)', msg: 'prazo da mensagem vence em ' + (15-d) + ' dia(s)' });
+    } else {
+      const d = daysSince(r.dataNotificacao);
+      if (d !== null && d >= 8 && d < 10) alerts.push({ protocolo: r.protocolo || '(sem protocolo)', msg: 'prazo da notificação vence em ' + (10-d) + ' dia(s)' });
+    }
+  });
+  if (alerts.length === 0) { noAlert.style.display = 'block'; }
+  else {
+    noAlert.style.display = 'none';
+    alerts.forEach(a => {
+      const li = el('li');
+      li.appendChild(el('span', { class:'ico', text:'⚠️' }));
+      const span = el('span');
+      span.appendChild(el('b', { text: a.protocolo }));
+      span.appendChild(document.createTextNode(' — ' + a.msg));
+      li.appendChild(span);
+      alertList.appendChild(li);
+    });
+  }
+}
+
+/* ---------- Controle de Estoque ---------- */
+function renderEstoque() {
+  const tbody = document.querySelector('#estoqueTable tbody');
+  tbody.innerHTML = '';
+  STATE.estoque.forEach((row) => {
+    const tr = document.createElement('tr');
+    const ref = doc(db, 'estoque', row.id);
+
+    const tdProt = el('td');
+    const inpProt = el('input', { type:'text', value: row.protocolo || '' });
+    inpProt.addEventListener('change', () => updateDoc(ref, { protocolo: inpProt.value.trim(), ...stampFields() }));
+    tdProt.appendChild(inpProt);
+    tr.appendChild(tdProt);
+
+    const tdDoc = el('td');
+    const selDoc = el('select', { class:'tipo-select' });
+    ['Título registrado','Título devolvido','Certidão'].forEach(opt => {
+      const o = el('option', { value: opt, text: docLabel(opt) });
+      if ((row.tipoDocumento || 'Título registrado') === opt) o.setAttribute('selected','selected');
+      selDoc.appendChild(o);
+    });
+    selDoc.addEventListener('change', () => updateDoc(ref, { tipoDocumento: selDoc.value, ...stampFields() }));
+    tdDoc.appendChild(selDoc);
+    tr.appendChild(tdDoc);
+
+    const tdClass = el('td');
+    const sel = el('select', { class: 'tipo-select tipo-' + (row.classificacao || 'Retirada') });
+    ['Retirada','Devolução','Recebimento'].forEach(opt => {
+      const o = el('option', { value: opt, text: classLabel(opt) });
+      if ((row.classificacao || 'Retirada') === opt) o.setAttribute('selected','selected');
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => updateDoc(ref, { classificacao: sel.value, ...stampFields() }));
+    tdClass.appendChild(sel);
+    tr.appendChild(tdClass);
+
+    tr.appendChild(editInfoCell(row));
+
+    const tdDel = el('td');
+    const delBtn = el('button', { class:'action secondary', text:'Remover' });
+    delBtn.addEventListener('click', () => deleteDoc(ref));
+    tdDel.appendChild(delBtn);
+    tr.appendChild(tdDel);
+
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('addEstoque').addEventListener('click', () => {
+  addDoc(collection(db, 'estoque'), {
+    protocolo:'', tipoDocumento:'Título registrado', classificacao:'Retirada',
+    dataMensagem:'', dataNotificacao:'', status:'Pendente', ...stampFields()
+  });
+});
+
+/* ---------- Notificações ---------- */
+function classBadge(classificacao) {
+  return el('span', { class:'tipo-tag tipo-' + classificacao, text: classLabel(classificacao) });
+}
+function renderNotif() {
+  const tbody = document.querySelector('#notifTable tbody');
+  tbody.innerHTML = '';
+  const rows = STATE.estoque.filter(r => r.classificacao === 'Devolução' || r.classificacao === 'Recebimento');
+  document.getElementById('notifEmpty').style.display = rows.length ? 'none' : 'block';
+
+  rows.forEach((row) => {
+    const tr = document.createElement('tr');
+    const ref = doc(db, 'estoque', row.id);
+
+    tr.appendChild(el('td', { text: row.protocolo || '(sem protocolo)' }));
+
+    const tdClass = el('td'); tdClass.appendChild(classBadge(row.classificacao)); tr.appendChild(tdClass);
+
+    const tdMsg = el('td');
+    const inpMsg = el('input', { type:'date', class:'date-input', value: row.dataMensagem || '' });
+    inpMsg.addEventListener('change', () => updateDoc(ref, { dataMensagem: inpMsg.value, ...stampFields() }));
+    tdMsg.appendChild(inpMsg); tr.appendChild(tdMsg);
+
+    const dMsg = daysSince(row.dataMensagem);
+    tr.appendChild(el('td', { class:'days' + (dMsg!==null && dMsg>15?' over':''), text: dMsg===null?'—':dMsg+'d' }));
+
+    const tdNotif = el('td');
+    const inpNotif = el('input', { type:'date', class:'date-input', value: row.dataNotificacao || '' });
+    inpNotif.addEventListener('change', () => updateDoc(ref, { dataNotificacao: inpNotif.value, ...stampFields() }));
+    tdNotif.appendChild(inpNotif); tr.appendChild(tdNotif);
+
+    const dNotif = daysSince(row.dataNotificacao);
+    tr.appendChild(el('td', { class:'days' + (dNotif!==null && dNotif>10?' over':''), text: dNotif===null?'—':dNotif+'d' }));
+
+    const tdStatus = el('td');
+    const badge = el('button', { class:'badge ' + (row.status==='Resolvido'?'resolvido':'pendente'), text: row.status || 'Pendente' });
+    badge.addEventListener('click', () => updateDoc(ref, { status: row.status==='Resolvido'?'Pendente':'Resolvido', ...stampFields() }));
+    tdStatus.appendChild(badge); tr.appendChild(tdStatus);
+
+    tr.appendChild(editInfoCell(row));
+    tbody.appendChild(tr);
+  });
+}
+
+/* ---------- Acompanhamento semanal ---------- */
+function renderWeek() {
+  const tbody = document.querySelector('#weekTable tbody');
+  tbody.innerHTML = '';
+  WEEK_DATES.forEach(date => {
+    const data = STATE.semanal[date] || {};
+    const tr = document.createElement('tr');
+    tr.appendChild(el('td', { text: date }));
+    ['registrados','devolvidos','certidoes','obs'].forEach(field => {
+      const td = el('td');
+      const input = el('textarea', { rows:'1' });
+      input.value = data[field] || '';
+      input.addEventListener('change', () => {
+        setDoc(doc(db, 'semanal', date), { [field]: input.value.trim(), ...stampFields() }, { merge:true });
+      });
+      td.appendChild(input);
+      tr.appendChild(td);
+    });
+    tr.appendChild(editInfoCell(data));
+    tbody.appendChild(tr);
+  });
+}
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+    try { localStorage.setItem('activeTab', btn.dataset.tab); } catch(e) {}
+  });
+});
+try {
+  const savedTab = localStorage.getItem('activeTab');
+  if (savedTab) document.querySelector('nav button[data-tab="'+savedTab+'"]')?.click();
+} catch(e) {}
+</script>
+</body>
+</html>
