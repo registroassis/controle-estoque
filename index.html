@@ -102,6 +102,13 @@ main { max-width: 1440px; margin: 0 auto; padding: 24px clamp(16px, 4vw, 48px) 7
 .card li { margin-bottom: 8px; }
 table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .tablewrap { overflow-x: auto; }
+#weekTable td textarea {
+  min-height: 84px; overflow: hidden; resize: vertical; line-height: 1.45;
+  background: var(--card); border: 1px solid var(--border);
+}
+#weekTable th:nth-child(2), #weekTable th:nth-child(3), #weekTable th:nth-child(4) { min-width: 220px; }
+#weekTable th:nth-child(5) { min-width: 380px; }
+#weekTable td:first-child { white-space: nowrap; font-weight: 700; }
 th, td { border: 1px solid var(--border); padding: 12px 15px; text-align: left; vertical-align: top; }
 th { background: var(--navy); color: #fff; font-weight: 700; white-space: nowrap; font-size: 14px; }
 tr:nth-child(even) td { background: rgba(127,127,127,0.06); }
@@ -577,8 +584,26 @@ function renderDashboard() {
   }
 }
 
+/* ---------- Evita apagar o que está sendo digitado quando chega atualização de outra pessoa ---------- */
+const pendingRender = { estoque: false, notif: false, week: false };
+function isEditingText(tableId) {
+  const a = document.activeElement;
+  if (!a || !a.closest || !a.closest('#' + tableId)) return false;
+  if (a.tagName === 'TEXTAREA') return true;
+  if (a.tagName === 'INPUT' && a.type !== 'date') return true;
+  return false;
+}
+document.addEventListener('focusout', () => {
+  setTimeout(() => {
+    if (pendingRender.estoque && !isEditingText('estoqueTable')) { pendingRender.estoque = false; renderEstoque(); }
+    if (pendingRender.notif && !isEditingText('notifTable')) { pendingRender.notif = false; renderNotif(); }
+    if (pendingRender.week && !isEditingText('weekTable')) { pendingRender.week = false; renderWeek(); }
+  }, 0);
+});
+
 /* ---------- Controle de Estoque ---------- */
 function renderEstoque() {
+  if (isEditingText('estoqueTable')) { pendingRender.estoque = true; return; }
   const tbody = document.querySelector('#estoqueTable tbody');
   tbody.innerHTML = '';
   const qE = normText(document.getElementById('searchEstoque').value);
@@ -886,6 +911,7 @@ function classBadge(classificacao) {
   return el('span', { class:'tipo-tag tipo-' + classificacao, text: classLabel(classificacao) });
 }
 function renderNotif() {
+  if (isEditingText('notifTable')) { pendingRender.notif = true; return; }
   const tbody = document.querySelector('#notifTable tbody');
   tbody.innerHTML = '';
   const allRows = STATE.estoque.filter(r => r.classificacao === 'Devolução' || r.classificacao === 'Recebimento').sort(protoSort);
@@ -931,7 +957,16 @@ function renderNotif() {
 }
 
 /* ---------- Acompanhamento semanal ---------- */
+function autosizeTextarea(t) {
+  t.style.height = 'auto';
+  const h = t.scrollHeight;
+  if (h > 0) t.style.height = h + 'px';
+}
+function autosizeWeek() {
+  document.querySelectorAll('#weekTable textarea').forEach(autosizeTextarea);
+}
 function renderWeek() {
+  if (isEditingText('weekTable')) { pendingRender.week = true; return; }
   const tbody = document.querySelector('#weekTable tbody');
   tbody.innerHTML = '';
   WEEK_DATES.forEach(date => {
@@ -940,8 +975,9 @@ function renderWeek() {
     tr.appendChild(el('td', { text: date }));
     ['registrados','devolvidos','certidoes','obs'].forEach(field => {
       const td = el('td');
-      const input = el('textarea', { rows:'1' });
+      const input = el('textarea', { rows:'3' });
       input.value = data[field] || '';
+      input.addEventListener('input', () => autosizeTextarea(input));
       input.addEventListener('change', () => {
         setDoc(doc(db, 'semanal', date), { [field]: input.value.trim(), ...stampFields() }, { merge:true });
       });
@@ -951,6 +987,7 @@ function renderWeek() {
     tr.appendChild(editInfoCell(data));
     tbody.appendChild(tr);
   });
+  autosizeWeek();
 }
 
 /* ---------- Tabs ---------- */
@@ -960,6 +997,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'acomp') autosizeWeek();
     try { localStorage.setItem('activeTab', btn.dataset.tab); } catch(e) {}
   });
 });
