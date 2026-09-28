@@ -154,6 +154,19 @@ button.action.secondary { background: transparent; color: var(--pending); border
 .stat.clickable { cursor: pointer; transition: transform .1s, border-color .15s; }
 .stat.clickable:hover { border-color: var(--gold); }
 .stat.selected { border-color: var(--navy); background: rgba(31,58,95,0.06); }
+.toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 4px 0 14px; }
+.searchbox { position: relative; flex: 1; min-width: 240px; max-width: 460px; }
+.searchbox input {
+  width: 100%; padding: 12px 14px 12px 40px; border: 1px solid var(--border); border-radius: 10px;
+  font-size: 15px; font-family: inherit; background: var(--card); color: var(--text);
+}
+.searchbox input:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+.searchbox::before { content: "🔍"; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 15px; }
+.searchcount { font-size: 13.5px; color: var(--muted); }
+button.action.light { background: rgba(31,58,95,0.10); color: var(--navy); }
+#importPreview { margin-top: 16px; padding: 16px 18px; border: 1px dashed var(--gold); border-radius: 12px; background: rgba(184,150,62,0.08); display: none; }
+#importPreview h3 { margin: 0 0 8px; font-size: 16px; color: var(--navy); }
+#importPreview .warn { color: var(--pending); font-size: 13.5px; margin: 6px 0; }
 #dashDetail { margin-top: 18px; }
 #dashDetail h3 { margin: 0 0 10px; font-size: 15px; color: var(--navy); }
 .stat.accent-pending .num { color: var(--pending); }
@@ -175,6 +188,7 @@ button.action.secondary { background: transparent; color: var(--pending); border
   .card { padding: 18px 18px; }
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -292,11 +306,22 @@ button.action.secondary { background: transparent; color: var(--pending); border
       <div class="card">
         <h2>Controle de estoque — protocolos</h2>
         <p class="hint">Inclua aqui todos os protocolos da relação do estoque. Tipo de documento define o prazo de guarda; Classificação define se o protocolo precisa de cobrança (aparece em Notificações).</p>
+        <div class="toolbar">
+          <div class="searchbox"><input type="search" id="searchEstoque" placeholder="Pesquisar protocolo…" autocomplete="off"></div>
+          <span class="searchcount" id="countEstoque"></span>
+        </div>
         <div class="tablewrap"><table id="estoqueTable">
           <thead><tr><th>Protocolo</th><th>Tipo de documento</th><th>Classificação</th><th>Última edição</th><th></th></tr></thead>
           <tbody></tbody>
         </table></div>
-        <div class="btnrow"><button class="action" id="addEstoque">+ Adicionar protocolo</button></div>
+        <div class="btnrow">
+          <button class="action" id="addEstoque">+ Adicionar protocolo</button>
+          <button class="action light" id="importBtn">⬆ Importar planilha</button>
+          <button class="action light" id="templateBtn">⬇ Baixar modelo</button>
+          <button class="action light" id="exportEstoque">⬇ Exportar planilha</button>
+          <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none">
+        </div>
+        <div id="importPreview"></div>
       </div>
     </section>
 
@@ -304,6 +329,11 @@ button.action.secondary { background: transparent; color: var(--pending); border
       <div class="card">
         <h2>Controle de notificações e cobranças</h2>
         <p class="hint">Mostra automaticamente os protocolos classificados como Devolução de valor ou Recebimento de valor. Preencha a data da mensagem e da notificação — os dias são contados sozinhos. Prazo: 15 dias após a mensagem, 10 dias após a notificação.</p>
+        <div class="toolbar">
+          <div class="searchbox"><input type="search" id="searchNotif" placeholder="Pesquisar protocolo…" autocomplete="off"></div>
+          <span class="searchcount" id="countNotif"></span>
+          <button class="action light" id="exportNotif">⬇ Exportar planilha</button>
+        </div>
         <div class="tablewrap"><table id="notifTable">
           <thead><tr><th>Protocolo</th><th>Classificação</th><th>Data da mensagem</th><th>Dias</th><th>Data da notificação</th><th>Dias</th><th>Status</th><th>Última edição</th></tr></thead>
           <tbody></tbody>
@@ -322,7 +352,7 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot
+  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -551,7 +581,12 @@ function renderDashboard() {
 function renderEstoque() {
   const tbody = document.querySelector('#estoqueTable tbody');
   tbody.innerHTML = '';
-  const sorted = [...STATE.estoque].sort(protoSort);
+  const qE = normText(document.getElementById('searchEstoque').value);
+  const allSorted = [...STATE.estoque].sort(protoSort);
+  const sorted = qE ? allSorted.filter(r => normText(r.protocolo).includes(qE)) : allSorted;
+  document.getElementById('countEstoque').textContent = qE
+    ? ('Mostrando ' + sorted.length + ' de ' + allSorted.length)
+    : (allSorted.length + ' protocolo(s)');
   sorted.forEach((row) => {
     const tr = document.createElement('tr');
     const ref = doc(db, 'estoque', row.id);
@@ -603,6 +638,249 @@ document.getElementById('addEstoque').addEventListener('click', () => {
   });
 });
 
+/* ---------- Pesquisa / Exportar / Importar ---------- */
+function normText(s) {
+  return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+document.getElementById('searchEstoque').addEventListener('input', () => renderEstoque());
+document.getElementById('searchNotif').addEventListener('input', () => renderNotif());
+
+function toISOFromAny(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    const r = new Date(v.getTime() + 12 * 3600 * 1000); // evita "escorregar" 1 dia por fuso horário
+    const y = r.getFullYear(), m = String(r.getMonth()+1).padStart(2,'0'), d = String(r.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + d;
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (m) return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+  return '';
+}
+function fmtBR(iso) {
+  const dt = parseISODate(iso);
+  return dt ? dt.toLocaleDateString('pt-BR') : '';
+}
+function downloadWorkbook(filename, sheets) {
+  if (!window.XLSX) { alert('A biblioteca de planilhas não carregou. Verifique a internet e recarregue a página.'); return; }
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(({ name, rows, widths }) => {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    if (widths) ws['!cols'] = widths.map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  });
+  XLSX.writeFile(wb, filename);
+}
+function todayTag() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function estoqueRowsForExport(list) {
+  return list.map(r => ({
+    'Protocolo': r.protocolo || '',
+    'Tipo de documento': r.tipoDocumento || 'Título registrado',
+    'Prazo de guarda': PRAZO_GUARDA[r.tipoDocumento || 'Título registrado'] || '',
+    'Classificação': classLabel(r.classificacao || 'Retirada'),
+    'Status': r.status || 'Pendente',
+    'Data da mensagem': fmtBR(r.dataMensagem),
+    'Data da notificação': fmtBR(r.dataNotificacao),
+    'Última edição por': r.editadoPor || '',
+    'Última edição em': r.editadoEm || ''
+  }));
+}
+document.getElementById('exportEstoque').addEventListener('click', () => {
+  const list = [...STATE.estoque].sort(protoSort);
+  downloadWorkbook('controle-estoque-' + todayTag() + '.xlsx', [
+    { name: 'Controle de estoque', rows: estoqueRowsForExport(list), widths: [16,20,16,22,12,18,20,28,18] }
+  ]);
+});
+document.getElementById('exportNotif').addEventListener('click', () => {
+  const list = STATE.estoque.filter(r => r.classificacao === 'Devolução' || r.classificacao === 'Recebimento').sort(protoSort);
+  const rows = list.map(r => {
+    const dm = daysSince(r.dataMensagem), dn = daysSince(r.dataNotificacao);
+    return {
+      'Protocolo': r.protocolo || '',
+      'Classificação': classLabel(r.classificacao),
+      'Data da mensagem': fmtBR(r.dataMensagem),
+      'Dias desde a mensagem': dm === null ? '' : dm,
+      'Data da notificação': fmtBR(r.dataNotificacao),
+      'Dias desde a notificação': dn === null ? '' : dn,
+      'Status': r.status || 'Pendente',
+      'Última edição por': r.editadoPor || '',
+      'Última edição em': r.editadoEm || ''
+    };
+  });
+  downloadWorkbook('notificacoes-' + todayTag() + '.xlsx', [
+    { name: 'Notificações', rows, widths: [16,22,18,20,20,22,12,28,18] }
+  ]);
+});
+document.getElementById('templateBtn').addEventListener('click', () => {
+  downloadWorkbook('modelo-importacao-protocolos.xlsx', [
+    { name: 'Protocolos', widths: [16,20,22],
+      rows: [
+        { 'Protocolo': '1001', 'Tipo de documento': 'Título registrado', 'Classificação': 'Retirada' },
+        { 'Protocolo': '1002', 'Tipo de documento': 'Título devolvido', 'Classificação': 'Devolução de valor' },
+        { 'Protocolo': '1003', 'Tipo de documento': 'Certidão', 'Classificação': 'Recebimento de valor' }
+      ] },
+    { name: 'Instruções', widths: [90],
+      rows: [
+        { 'Instruções': 'Preencha uma linha por protocolo na aba "Protocolos" (apague as linhas de exemplo).' },
+        { 'Instruções': 'Protocolo é obrigatório. Tipo de documento: Título registrado, Título devolvido ou Certidão (padrão: Título registrado).' },
+        { 'Instruções': 'Classificação: Retirada, Devolução de valor ou Recebimento de valor (padrão: Retirada).' },
+        { 'Instruções': 'Colunas opcionais: Status (Pendente/Resolvido), Data da mensagem, Data da notificação (formato dd/mm/aaaa).' },
+        { 'Instruções': 'Protocolos que já existem no sistema são ignorados, para não duplicar.' }
+      ] }
+  ]);
+});
+
+function mapTipoDoc(v) {
+  const s = normText(v);
+  if (!s) return 'Título registrado';
+  if (s.includes('devolv')) return 'Título devolvido';
+  if (s.includes('certid')) return 'Certidão';
+  return 'Título registrado';
+}
+function mapClassif(v) {
+  const s = normText(v);
+  if (!s) return 'Retirada';
+  if (s.includes('devol')) return 'Devolução';
+  if (s.includes('receb')) return 'Recebimento';
+  return 'Retirada';
+}
+function findCol(headers, candidates) {
+  for (const h of headers) {
+    const n = normText(h);
+    if (candidates.some(c => n === c || n.includes(c))) return h;
+  }
+  return null;
+}
+
+let pendingImport = [];
+const importPreview = document.getElementById('importPreview');
+document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!window.XLSX) { alert('A biblioteca de planilhas não carregou. Verifique a internet e recarregue a página.'); return; }
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
+    if (!json.length) { showImportMessage('A planilha está vazia.', true); return; }
+    const headers = Object.keys(json[0]);
+    const colProt = findCol(headers, ['protocolo']);
+    if (!colProt) { showImportMessage('Não encontrei a coluna "Protocolo" na primeira linha da planilha.', true); return; }
+    const colTipo = findCol(headers, ['tipo de documento', 'tipo']);
+    const colClass = findCol(headers, ['classificacao', 'classif']);
+    const colStatus = findCol(headers, ['status']);
+    const colDM = findCol(headers, ['data da mensagem', 'mensagem']);
+    const colDN = findCol(headers, ['data da notificacao', 'notificacao']);
+
+    const existing = new Set(STATE.estoque.map(r => normText(r.protocolo)));
+    const seen = new Set();
+    let dupExisting = 0, dupFile = 0, empty = 0;
+    const toAdd = [];
+    json.forEach(row => {
+      const prot = String(row[colProt] == null ? '' : row[colProt]).trim();
+      if (!prot) { empty++; return; }
+      const key = normText(prot);
+      if (existing.has(key)) { dupExisting++; return; }
+      if (seen.has(key)) { dupFile++; return; }
+      seen.add(key);
+      toAdd.push({
+        protocolo: prot,
+        tipoDocumento: mapTipoDoc(colTipo ? row[colTipo] : ''),
+        classificacao: mapClassif(colClass ? row[colClass] : ''),
+        status: (colStatus && normText(row[colStatus]).startsWith('resolv')) ? 'Resolvido' : 'Pendente',
+        dataMensagem: colDM ? toISOFromAny(row[colDM]) : '',
+        dataNotificacao: colDN ? toISOFromAny(row[colDN]) : ''
+      });
+    });
+    pendingImport = toAdd;
+    renderImportPreview(toAdd, { dupExisting, dupFile, empty, total: json.length });
+  } catch (err) {
+    console.error(err);
+    showImportMessage('Não consegui ler esse arquivo. Use uma planilha .xlsx ou .csv.', true);
+  }
+});
+
+function showImportMessage(msg, isError) {
+  importPreview.style.display = 'block';
+  importPreview.innerHTML = '';
+  const p = el('p', { text: msg });
+  if (isError) p.style.color = 'var(--pending)';
+  importPreview.appendChild(p);
+  const close = el('button', { class:'action light', text:'Fechar' });
+  close.addEventListener('click', () => { importPreview.style.display = 'none'; });
+  importPreview.appendChild(close);
+}
+
+function renderImportPreview(toAdd, info) {
+  importPreview.style.display = 'block';
+  importPreview.innerHTML = '';
+  importPreview.appendChild(el('h3', { text: 'Prévia da importação' }));
+  importPreview.appendChild(el('p', { text: 'Linhas lidas na planilha: ' + info.total + ' · Novos protocolos a importar: ' + toAdd.length }));
+  if (info.dupExisting) importPreview.appendChild(el('p', { class:'warn', text: info.dupExisting + ' protocolo(s) já existem no sistema e serão ignorados.' }));
+  if (info.dupFile) importPreview.appendChild(el('p', { class:'warn', text: info.dupFile + ' protocolo(s) repetido(s) dentro da própria planilha serão ignorados.' }));
+  if (info.empty) importPreview.appendChild(el('p', { class:'warn', text: info.empty + ' linha(s) sem número de protocolo serão ignoradas.' }));
+
+  if (toAdd.length) {
+    const sample = [...toAdd].sort(protoSort).slice(0, 8);
+    const table = el('table');
+    const trh = el('tr');
+    ['Protocolo','Tipo de documento','Classificação'].forEach(h => trh.appendChild(el('th', { text: h })));
+    const thead = el('thead'); thead.appendChild(trh); table.appendChild(thead);
+    const tbody = el('tbody');
+    sample.forEach(r => {
+      const tr = el('tr');
+      tr.appendChild(el('td', { text: r.protocolo }));
+      tr.appendChild(el('td', { text: r.tipoDocumento }));
+      tr.appendChild(el('td', { text: classLabel(r.classificacao) }));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    const wrap = el('div', { class:'tablewrap' }); wrap.appendChild(table);
+    importPreview.appendChild(wrap);
+    if (toAdd.length > sample.length) importPreview.appendChild(el('p', { class:'hint', text: '…e mais ' + (toAdd.length - sample.length) + ' protocolo(s).' }));
+  }
+
+  const btns = el('div', { class:'btnrow' });
+  if (toAdd.length) {
+    const ok = el('button', { class:'action', text: 'Importar ' + toAdd.length + ' protocolo(s)' });
+    ok.addEventListener('click', () => confirmImport(ok));
+    btns.appendChild(ok);
+  }
+  const cancel = el('button', { class:'action light', text: toAdd.length ? 'Cancelar' : 'Fechar' });
+  cancel.addEventListener('click', () => { pendingImport = []; importPreview.style.display = 'none'; });
+  btns.appendChild(cancel);
+  importPreview.appendChild(btns);
+}
+
+async function confirmImport(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Importando…';
+  try {
+    const stamp = stampFields();
+    const items = pendingImport;
+    for (let i = 0; i < items.length; i += 400) {
+      const batch = writeBatch(db);
+      items.slice(i, i + 400).forEach(item => {
+        batch.set(doc(collection(db, 'estoque')), { ...item, ...stamp });
+      });
+      await batch.commit();
+    }
+    const n = items.length;
+    pendingImport = [];
+    showImportMessage('✔ ' + n + ' protocolo(s) importado(s) com sucesso.', false);
+  } catch (err) {
+    console.error(err);
+    showImportMessage('Erro ao importar: ' + (err && err.message ? err.message : 'tente novamente.'), true);
+  }
+}
+
 /* ---------- Notificações ---------- */
 function classBadge(classificacao) {
   return el('span', { class:'tipo-tag tipo-' + classificacao, text: classLabel(classificacao) });
@@ -610,8 +888,13 @@ function classBadge(classificacao) {
 function renderNotif() {
   const tbody = document.querySelector('#notifTable tbody');
   tbody.innerHTML = '';
-  const rows = STATE.estoque.filter(r => r.classificacao === 'Devolução' || r.classificacao === 'Recebimento').sort(protoSort);
-  document.getElementById('notifEmpty').style.display = rows.length ? 'none' : 'block';
+  const allRows = STATE.estoque.filter(r => r.classificacao === 'Devolução' || r.classificacao === 'Recebimento').sort(protoSort);
+  const qN = normText(document.getElementById('searchNotif').value);
+  const rows = qN ? allRows.filter(r => normText(r.protocolo).includes(qN)) : allRows;
+  document.getElementById('countNotif').textContent = qN
+    ? ('Mostrando ' + rows.length + ' de ' + allRows.length)
+    : (allRows.length + ' protocolo(s)');
+  document.getElementById('notifEmpty').style.display = allRows.length ? 'none' : 'block';
 
   rows.forEach((row) => {
     const tr = document.createElement('tr');
