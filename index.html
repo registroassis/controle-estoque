@@ -409,6 +409,14 @@ function parseISODate(d) {
   const dt = new Date(d + 'T00:00:00');
   return isNaN(dt.getTime()) ? null : dt;
 }
+function isPlausibleISODate(iso) {
+  if (!iso) return true; // vazio = limpando o campo, ok
+  const m = /^(\d{4})-\d{2}-\d{2}$/.exec(iso);
+  if (!m) return false;
+  const y = parseInt(m[1], 10);
+  const nowY = new Date().getFullYear();
+  return y >= 2000 && y <= nowY + 2;
+}
 function daysSince(d) {
   const dt = parseISODate(d);
   if (!dt) return null;
@@ -1074,7 +1082,14 @@ function renderNotif() {
 
     const tdMsg = el('td');
     const inpMsg = el('input', { type:'date', class:'date-input', value: row.dataMensagem || '' });
-    inpMsg.addEventListener('change', () => updateDoc(ref, { dataMensagem: inpMsg.value, ...stampFields() }));
+    inpMsg.addEventListener('change', () => {
+      if (!isPlausibleISODate(inpMsg.value)) {
+        alert('Essa data ficou incorreta (ano ' + inpMsg.value.slice(0,4) + '). Use o ícone do calendário para escolher a data, em vez de digitar direto.');
+        inpMsg.value = row.dataMensagem || '';
+        return;
+      }
+      updateDoc(ref, { dataMensagem: inpMsg.value, ...stampFields() });
+    });
     tdMsg.appendChild(inpMsg); tr.appendChild(tdMsg);
 
     const dMsg = daysSince(row.dataMensagem);
@@ -1082,7 +1097,14 @@ function renderNotif() {
 
     const tdNotif = el('td');
     const inpNotif = el('input', { type:'date', class:'date-input', value: row.dataNotificacao || '' });
-    inpNotif.addEventListener('change', () => updateDoc(ref, { dataNotificacao: inpNotif.value, ...stampFields() }));
+    inpNotif.addEventListener('change', () => {
+      if (!isPlausibleISODate(inpNotif.value)) {
+        alert('Essa data ficou incorreta (ano ' + inpNotif.value.slice(0,4) + '). Use o ícone do calendário para escolher a data, em vez de digitar direto.');
+        inpNotif.value = row.dataNotificacao || '';
+        return;
+      }
+      updateDoc(ref, { dataNotificacao: inpNotif.value, ...stampFields() });
+    });
     tdNotif.appendChild(inpNotif); tr.appendChild(tdNotif);
 
     const dNotif = daysSince(row.dataNotificacao);
