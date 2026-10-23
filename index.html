@@ -642,7 +642,8 @@ function isEditingText(tableId) {
   const a = document.activeElement;
   if (!a || !a.closest || !a.closest('#' + tableId)) return false;
   if (a.tagName === 'TEXTAREA') return true;
-  if (a.tagName === 'INPUT' && a.type !== 'date') return true;
+  if (a.tagName === 'INPUT') return true;
+  if (a.tagName === 'SELECT') return true;
   return false;
 }
 document.addEventListener('focusout', () => {
