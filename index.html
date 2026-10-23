@@ -132,6 +132,7 @@ td input[type="text"]:focus, td textarea:focus { outline: 2px solid var(--gold);
   width: 100%; min-width: 150px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--card); color: var(--text); font-size: 14.5px; padding: 9px 8px; font-family: inherit;
 }
+.date-input.invalid { border-color: var(--pending); outline: 2px solid var(--pending); outline-offset: -1px; }
 .days { font-weight: 700; font-size: 15px; }
 .days.over { color: var(--pending); }
 .btnrow { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
@@ -1083,11 +1084,8 @@ function renderNotif() {
     const tdMsg = el('td');
     const inpMsg = el('input', { type:'date', class:'date-input', value: row.dataMensagem || '' });
     inpMsg.addEventListener('change', () => {
-      if (!isPlausibleISODate(inpMsg.value)) {
-        alert('Essa data ficou incorreta (ano ' + inpMsg.value.slice(0,4) + '). Use o ícone do calendário para escolher a data, em vez de digitar direto.');
-        inpMsg.value = row.dataMensagem || '';
-        return;
-      }
+      if (!isPlausibleISODate(inpMsg.value)) { inpMsg.classList.add('invalid'); return; }
+      inpMsg.classList.remove('invalid');
       updateDoc(ref, { dataMensagem: inpMsg.value, ...stampFields() });
     });
     tdMsg.appendChild(inpMsg); tr.appendChild(tdMsg);
@@ -1098,11 +1096,8 @@ function renderNotif() {
     const tdNotif = el('td');
     const inpNotif = el('input', { type:'date', class:'date-input', value: row.dataNotificacao || '' });
     inpNotif.addEventListener('change', () => {
-      if (!isPlausibleISODate(inpNotif.value)) {
-        alert('Essa data ficou incorreta (ano ' + inpNotif.value.slice(0,4) + '). Use o ícone do calendário para escolher a data, em vez de digitar direto.');
-        inpNotif.value = row.dataNotificacao || '';
-        return;
-      }
+      if (!isPlausibleISODate(inpNotif.value)) { inpNotif.classList.add('invalid'); return; }
+      inpNotif.classList.remove('invalid');
       updateDoc(ref, { dataNotificacao: inpNotif.value, ...stampFields() });
     });
     tdNotif.appendChild(inpNotif); tr.appendChild(tdNotif);
