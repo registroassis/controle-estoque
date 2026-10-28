@@ -376,7 +376,7 @@ button.action.light { background: rgba(31,58,95,0.10); color: var(--navy); }
           <button class="action light" id="exportNotif">⬇ Exportar planilha</button>
         </div>
         <div class="tablewrap"><table id="notifTable">
-          <thead><tr><th>Protocolo</th><th>Classificação</th><th>Data da mensagem</th><th>Dias</th><th>Data da notificação</th><th>Dias</th><th>Status</th><th>Última edição</th></tr></thead>
+          <thead><tr><th>Protocolo</th><th>Classificação</th><th>Data da mensagem</th><th>Dias</th><th>Data da notificação</th><th>Dias</th><th>Status</th><th>Finalizado</th><th>Última edição</th></tr></thead>
           <tbody></tbody>
         </table></div>
         <p class="hint" id="notifEmpty" style="display:none">Nenhum protocolo classificado como Devolução de valor ou Recebimento de valor no momento.</p>
@@ -415,6 +415,7 @@ const PRAZO_GUARDA = {
 };
 const TIPO_DOC_OPTIONS = ['Título registrado','Título devolvido','Certidão','Título cancelado','Título com exigência'];
 const CLASS_LABEL = { 'Retirada': 'Retirada', 'Devolução': 'Devolução de valor', 'Recebimento': 'Recebimento de valor' };
+const FINALIZADO_OPTIONS = ['', 'Devolvido para o cliente', 'Retirado com cheque próprio', 'Retirado e repassado por falta de contato'];
 function docLabel(t) { const p = PRAZO_GUARDA[t]; return t + (p ? ' — prazo de guarda ' + p : ''); }
 function classLabel(c) { return CLASS_LABEL[c] || c; }
 
@@ -798,12 +799,13 @@ document.getElementById('exportNotif').addEventListener('click', () => {
       'Data da notificação': fmtBR(r.dataNotificacao),
       'Dias desde a notificação': dn === null ? '' : dn,
       'Status': r.status || 'Pendente',
+      'Finalizado': r.finalizado || '',
       'Última edição por': r.editadoPor || '',
       'Última edição em': r.editadoEm || ''
     };
   });
   downloadWorkbook('notificacoes-' + todayTag() + '.xlsx', [
-    { name: 'Notificações', rows, widths: [16,22,18,20,20,22,12,28,18] }
+    { name: 'Notificações', rows, widths: [16,22,18,20,20,22,12,30,28,18] }
   ]);
 });
 document.getElementById('templateBtn').addEventListener('click', () => {
@@ -1123,6 +1125,16 @@ function renderNotif() {
     const badge = el('button', { class:'badge ' + (row.status==='Resolvido'?'resolvido':'pendente'), text: row.status || 'Pendente' });
     badge.addEventListener('click', () => updateDoc(ref, { status: row.status==='Resolvido'?'Pendente':'Resolvido', ...stampFields() }));
     tdStatus.appendChild(badge); tr.appendChild(tdStatus);
+
+    const tdFinal = el('td');
+    const selFinal = el('select', { class:'tipo-select' });
+    FINALIZADO_OPTIONS.forEach(opt => {
+      const o = el('option', { value: opt, text: opt || '—' });
+      if ((row.finalizado || '') === opt) o.setAttribute('selected', 'selected');
+      selFinal.appendChild(o);
+    });
+    selFinal.addEventListener('change', () => updateDoc(ref, { finalizado: selFinal.value, ...stampFields() }));
+    tdFinal.appendChild(selFinal); tr.appendChild(tdFinal);
 
     tr.appendChild(editInfoCell(row));
     tbody.appendChild(tr);
